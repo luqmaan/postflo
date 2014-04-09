@@ -1,0 +1,45 @@
+/*
+ * This psuedocode was used to plan the admin.php and notify.php files 
+ * and may help in understanding the code
+ *
+ */
+
+
+LOAD ==== > admin.php
+
+Admin sees a form with a message box.
+
+Admin sees list of users.
+
+	Pull users from DB
+	
+	Calculate users Klout score
+
+Admin selects which users to send message to.
+
+Admin fills message box with message.
+
+Admin hits submit.
+
+SUBMIT ==== > notify.php
+
+PHP receives &fbMsg &twMsg and &users as parameters
+
+	users is received as a list of IDs seperated by + signs
+	
+	turn this list into an array
+	
+	foreach ($arrayOfIDs as $id)
+		
+		SELECT fb?tw, row FROM users WHERE id = $id
+		
+		IF fb
+		
+			sendFacebookMessage
+		
+		ELSE IF tw
+			
+			sendTwitterMessage
+		
+echo success and failures
+

@@ -1,0 +1,157 @@
+<?php
+require 'config.php';
+
+include 'lib/twitter/EpiCurl.php';
+include 'lib/twitter/EpiOAuth.php';
+include 'lib/twitter/EpiTwitter.php';
+
+require 'lib/facebook/facebook.php';
+
+$twitterObj = new EpiTwitter($consumer_key, $consumer_secret);
+$twAuthUrl = $twitterObj -> getAuthorizationUrl();
+
+$facebook = new Facebook( array(
+		'appId' => $fb_app_id,
+		'secret' => $fb_secret
+));
+
+$user = $facebook -> getUser();
+
+// redirect to facebook page
+if (isset($_GET['code'])) {
+	header("Location: " . $fb_app_url);
+	exit ;
+}
+
+// create authorising url
+$fbAuthUrl = $facebook -> getLoginUrl(array(
+		'canvas' => 0,
+		'fbconnect' => 0,
+		'scope' => 'offline_access,publish_stream',
+		'redirect_uri' => $redirect_uri
+));
+?>
+
+<html>
+	<head>
+		<title>Notification Results | postFlo</title>
+		<link href='http://fonts.googleapis.com/css?family=Open+Sans:400,300,700' rel='stylesheet' type='text/css' />
+		<link href="css/default.css" rel="stylesheet" type="text/css" />
+	</head>
+	<body>
+		<div id="container">
+			<h1>postFlo</h1>
+			<h3>A simple workflow for getting permission to post to users social profiles + a simple workflow to post to all the users profiles.</h3>
+			<h2>The Buttons</h2>
+			<p>
+				Try 'em out!
+			</p>
+			<a href="<?php echo $fbAuthUrl;?>" class="button fb">I love this so much I want to give you my Facebook!</a>
+			<a href="<?php echo $twAuthUrl;?>" class="button tw">I love this so much I want to give you my Twitter!</a>
+			<h2>Send posts to users</h2>
+			<p>
+				<a href="admin.php">Admin Area</a> I emailed you the password
+			</p>
+			<h2>Notes</h2>
+			<p>
+				postFlo consists of two pieces: a user permission gathering system and a user posting system.
+			</p>
+			<h3>Permission Gathering System</h3>
+			<b> On the Facebook side of things: </b>
+			<ul>
+				<li>Create a new Facebook application</li>
+				<li>Create a new authorization URL based on our requested permissions: <i>offline_access</i> and <i>publish_stream</i></li>
+				<li>Present the user this URL in the form of a pretty button</li>
+				<li>When the button is clicked, the standard Facebook App log in & authorization pages appear</li>
+				<li>The user fills them out and grants us access</li>
+				<li>Facebook passes some tokens to our nifty redirect_uri; we call it <i>fbCallback.php</i></li>
+				<li>fbCallback.php takes the users access tokens and saves it to a table called <i>'fb_users'</i>; an example row is: </li>
+				<ul>
+					<li>id = 7, user_id = 753842370, name = John Smith, access_token = AAAEoiZBzvqZAcBAN1vpoekfwoiejfoiwejfoiwejfoiwjef6</li>
+				</ul>
+				<li>fbCallback.php inserts <i>id</i> as 'row' into into a table called <i>'users'</i> along with their network (fb)</li>
+			</ul>
+			<b> On the Twitter side of things: </b>
+			<ul>
+				<li>Create a new Twitter object</li>
+				<li>Create a new authorization url based on our app's <i>consumer key</i> and </i>consumer secret</i></li>
+				<li>Present the user this URL in the form of a pretty button</li>
+				<li>When the button is clicked, the standard Twitter App log in & authorization pages appear</li>
+				<li>The user fills them out and grants us access</li>
+				<li>Facebook passes some tokens to our nifty callback url; we call it <i>twCallback.php</i></li>
+				<li>fbCallback.php takes the users access tokens and saves it to a table called <i>'fb_users'</i>; an example row is: </li>
+				<ul>
+					<li>id = 7, user_id = 422382022, screen_name = CreatechConsult, profile_image_url = http://imagepath.jpg, oauth_token = longToken, oauth_token_secret = longTokenSecret, </li>
+				</ul>
+				<li>twCallback.php also inserts the user into a table called <i>'users'</i> along with their network (tw)</li>
+			</ul>
+			<p>
+				The reason we have a seperate table called 'users' is so that we can easily call both the Twitter and Facebook users in other places, like admin.php.
+			</p>
+			<p>
+				Overview of the tables:
+			</p>
+			<ul>
+				<li>fb_users<img src='images/fb_users.png' /></li>
+				<li>tw_users<img src='images/tw_users.png' /></li>
+				<li>users<img src='images/users.png' /></li>
+			</ul>
+			<h3>Posting System</h3>
+			<p>
+				You (the admin) visits <a href='admin.php'>admin.php</a>. You fill it out, and then the admin.php sends data over to notify.php. Notify.php does the dirty work of actually sending the users the notifications.
+			</p>
+			<b>admin.php</b>
+			<ul>
+				<li>Is just a form that sends data to notify.php via POST</li>
+				<li>Uses /lib/login for security</li>
+				<li>Pulls users from the <i>'users'</i> table</li>
+				<li>Sets up a new Facebook and Twitter object</li>
+				<li>If they are from Facebook, it pulls their info from the <i>'fb_users'</i> table</li>
+				<li>If they are from Twitter, it pulls their info from the <i>'tw_users'</i> table</li>
+				<ul>
+					<li>If they are from Twitter, it gets their Klout score</li>
+				</ul>
+			</ul>
+			<b>notify.php</b>
+			<ul>
+				<li>Uses POST to get the data from admin.php</li>
+				<li>Goes through the user list that is passed, determines which table they are in, and then runs the appropriate post function: postToTW.php or postToFB.php</li>
+			</ul>
+			<b>postToTW.php</b>
+			<ul>
+				<li>Sets up a Twitter object that posts using the passed tokens and message to Twitter</li>
+				<li>Returns a success or fail message</li>
+				<li>Uses /lib/twitter</li>
+			</ul>
+			<b>postToFB.php</b>
+			<ul>
+				<li>Sets up a Facebook object that posts using the passed tokens and message to Facebook</li>
+				<li>Returns a success or fail message</li>
+				<li>Uses /lib/facebook</li>
+			</ul>
+			<h3>Settings</h3>
+			<b>Settings are stored in:</b>
+			<ul>
+				<li>config.php - houses the database connection settings, twitter settings, and facebook settings</li>
+				<li>Facebook App - The canvas url of our app</li>
+				<ul>
+					<li>You  specify the callback uri within the code, redirect_uri</li>
+				</ul>
+				<li>Twitter App - The url of our app, the callback URL, the permissions we need, and such</li>
+			</ul>
+			<h3>The Library</h3>
+			<p>
+				We use quite four libraries (all stored in /lib) to power the app.
+			</p>
+			<ul>
+				<li><b>/lib/facebook</b> - v3 of the Facebook PHP SDK</li>
+				<li><b>/lib/twitter</b> - uses twitter-async, from https://github.com/jmathai/twitter-async</li>
+				<li><b>/lib/klout</b> - custom written, super simple</li>
+				<li><b>/lib/login</b> - uses PHP Login Script, from https://github.com/sonusandhu/PHP-Login-Script</li>
+				<ul>
+					<li>This was wripped and torn apart to make it work. To be able to utilize the files in /lib/login, be sure to update the path to config.php within /lib/login/include/adminFunctions.php
+				</ul>
+			</ul>
+		</div>
+	</body>
+</html>
